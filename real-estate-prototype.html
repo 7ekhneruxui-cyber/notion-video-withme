@@ -1,48 +1,46 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: white;
-    }
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  body {
+    margin: 0;
+    background: transparent;
+  }
 
-    .wrapper {
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-    }
+  .video-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
 
-    .video-box {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      overflow: hidden;
-    }
+  iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 177.78dvh;
+    height: 100dvh;
+    transform: translate(-50%, -50%);
+    border: none;
+  }
 
+  @media (max-aspect-ratio: 16/9) {
     iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      pointer-events: none;
+      width: 100vw;
+      height: 56.25vw;
     }
-  </style>
+  }
+</style>
 </head>
 
 <body>
-  <div class="wrapper">
-    <div class="video-box">
-      <iframe 
-        src="https://player.vimeo.com/video/1168431588?background=1&autopause=0"
-        allow="autoplay">
-      </iframe>
-    </div>
+  <div class="video-wrapper">
+    <iframe 
+      src="https://player.vimeo.com/video/1168431588?background=1&autoplay=1&loop=1&muted=1"
+      allow="autoplay; fullscreen"
+      allowfullscreen>
+    </iframe>
   </div>
 </body>
 </html>
