@@ -14,7 +14,7 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 177.77vh;
+      width: 177.77vh; /* 16:9 */
       height: 100vh;
       transform: translate(-50%, -50%);
       border: none;
@@ -31,19 +31,10 @@
 </head>
 
 <body>
-  <iframe id="videoFrame"
+  <iframe 
+    src="https://player.vimeo.com/video/1168425807?autoplay=1&muted=1&loop=1&background=1"
     allow="autoplay; fullscreen"
     allowfullscreen>
   </iframe>
-
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const videoId = params.get("video");
-
-    if (videoId) {
-      document.getElementById("videoFrame").src =
-        `https://player.vimeo.com/video/1168425807?autoplay=1&muted=1&loop=1&background=1`;
-    }
-  </script>
 </body>
 </html>
