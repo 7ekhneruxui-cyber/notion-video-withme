@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: black;
+    }
+
+    iframe {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 177.77vh; /* 16:9 */
+      height: 100vh;
+      transform: translate(-50%, -50%);
+      border: none;
+      pointer-events: none;
+    }
+
+    @media (min-aspect-ratio: 16/9) {
+      iframe {
+        width: 100vw;
+        height: 56.25vw;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <iframe 
+    src="https://player.vimeo.com/video/1168446565?autoplay=1&muted=1&loop=1&background=1"
+    allow="autoplay; fullscreen"
+    allowfullscreen>
+  </iframe>
+</body>
+</html>
