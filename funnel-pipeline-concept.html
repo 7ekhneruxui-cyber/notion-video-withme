@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funnel Builder — Pipeline View</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0e0f11;
+  --bg2: #141518;
+  --bg3: #1a1c20;
+  --bg4: #1f2127;
+  --border: rgba(255,255,255,0.07);
+  --border-strong: rgba(255,255,255,0.13);
+  --text: #e8e6e0;
+  --text2: #8a8880;
+  --text3: #55534e;
+  --accent: #22c487;
+  --accent-dim: rgba(34,196,135,0.12);
+  --accent-mid: rgba(34,196,135,0.3);
+  --amber: #e8a642;
+  --amber-dim: rgba(232,166,66,0.1);
+  --blue: #5b9cf6;
+  --blue-dim: rgba(91,156,246,0.1);
+  --purple: #a78bfa;
+  --purple-dim: rgba(167,139,250,0.1);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.1);
+  --font: 'Geist', system-ui, sans-serif;
+  --mono: 'Geist Mono', monospace;
+  --topbar: 48px;
+  --panel-w: 340px;
+  --radius: 10px;
+}
+
+html, body { height: 100%; background: var(--bg); font-family: var(--font); font-size: 13px; color: var(--text); overflow: hidden; }
+
+/* ── TOPBAR ── */
+.topbar {
+  height: var(--topbar); background: var(--bg2); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 12px;
+  position: relative; z-index: 200;
+}
+.logo { font-size: 13px; font-weight: 600; letter-spacing: -.02em; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.logo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.topbar-sep { width: 1px; height: 18px; background: var(--border); }
+.funnel-name { font-size: 13px; color: var(--text2); font-family: var(--mono); }
+.topbar-tabs { display: flex; gap: 2px; margin-left: 8px; }
+.topbar-tab { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: none; background: none; color: var(--text2); cursor: pointer; font-family: var(--font); transition: all .15s; }
+.topbar-tab:hover { color: var(--text); background: var(--bg3); }
+.topbar-tab.active { background: var(--bg4); color: var(--text); border: 1px solid var(--border-strong); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.btn { font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 7px; cursor: pointer; border: none; font-family: var(--font); transition: all .15s; }
+.btn-ghost { background: var(--bg3); color: var(--text2); border: 1px solid var(--border-strong); }
+.btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+.btn-primary { background: var(--accent); color: #0a1a12; font-weight: 600; }
+.btn-primary:hover { filter: brightness(1.1); }
+
+/* View switcher */
+.view-switcher { display: flex; background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 2px; gap: 2px; }
+.view-btn { font-size: 11px; padding: 4px 10px; border-radius: 5px; border: none; background: none; color: var(--text2); cursor: pointer; font-family: var(--font); display: flex; align-items: center; gap: 5px; transition: all .12s; }
+.view-btn.active { background: var(--bg4); color: var(--text); border: 1px solid var(--border); }
+.view-btn svg { width: 12px; height: 12px; }
+
+/* ── CANVAS ── */
+.canvas-wrap {
+  position: relative; width: 100%; height: calc(100vh - var(--topbar));
+  overflow: hidden; background: var(--bg);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 0);
+  background-size: 28px 28px;
+}
+
+/* ── SVG ARROWS ── */
+#arrows-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+
+/* ── NODES ── */
+.pipeline-node {
+  position: absolute;
+  width: 200px;
+  background: var(--bg2);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .12s;
+  user-select: none;
+}
+.pipeline-node:hover { border-color: rgba(255,255,255,0.22); box-shadow: 0 0 0 4px rgba(255,255,255,0.03); }
+.pipeline-node.selected { border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--accent-dim) !important; }
+.pipeline-node.route-quiz { --node-color: var(--blue); --node-dim: var(--blue-dim); }
+.pipeline-node.route-paywall { --node-color: var(--amber); --node-dim: var(--amber-dim); }
+.pipeline-node.route-email { --node-color: var(--purple); --node-dim: var(--purple-dim); }
+
+.node-header {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.node-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--node-dim, var(--bg3));
+  border: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 13px;
+}
+.node-meta { flex: 1; min-width: 0; }
+.node-index { font-size: 9px; font-weight: 600; font-family: var(--mono); color: var(--text3); letter-spacing: .05em; }
+.node-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node-body { padding: 8px 12px 10px; }
+.node-route-tag {
+  display: inline-block; font-size: 10px; font-family: var(--mono); font-weight: 500;
+  padding: 2px 7px; border-radius: 4px;
+  background: var(--node-dim, var(--bg3));
+  color: var(--node-color, var(--text2));
+  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 6px;
+}
+.node-preview-text { font-size: 11px; color: var(--text2); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.node-footer { padding: 6px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.node-model-tag { font-size: 10px; font-family: var(--mono); color: var(--text3); }
+.node-status { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+.node-status.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.node-status.warn { background: var(--amber); }
+
+/* Port dots */
+.port {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--bg2); border: 2px solid var(--border-strong);
+  transition: all .15s; cursor: crosshair;
+}
+.port:hover { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+.port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+.port-out-b { bottom: -6px; left: 50%; transform: translateX(-50%); }
+
+/* Connector line style */
+.connector { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
+.connector.highlighted { stroke: var(--accent); }
+.connector-label { font-size: 10px; font-family: var(--mono); fill: var(--text3); }
+
+/* ── BRANCH LABEL ── */
+.branch-label {
+  position: absolute; font-size: 9px; font-family: var(--mono); font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase;
+  background: var(--bg2); border: 1px solid var(--border-strong);
+  padding: 2px 7px; border-radius: 4px; color: var(--text3);
+  pointer-events: none;
+}
+
+/* ── ROUTE LEGEND ── */
+.legend {
+  position: absolute; bottom: 20px; left: 20px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 7px; z-index: 10;
+}
+.legend-title { font-size: 9px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 2px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── CANVAS CONTROLS ── */
+.canvas-controls {
+  position: absolute; bottom: 20px; right: calc(var(--panel-w) + 20px);
+  display: flex; gap: 4px; z-index: 10;
+}
+.canvas-controls.panel-closed { right: 20px; }
+.ctrl-btn {
+  width: 32px; height: 32px; background: var(--bg2); border: 1px solid var(--border-strong);
+  border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--text2); font-size: 14px; transition: all .12s; font-family: var(--font);
+}
+.ctrl-btn:hover { color: var(--text); background: var(--bg3); }
+
+/* ── DETAIL PANEL ── */
+.detail-panel {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: var(--panel-w); background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(0); transition: transform .2s cubic-bezier(.4,0,.2,1);
+  z-index: 100;
+}
+.detail-panel.closed { transform: translateX(100%); }
+
+.panel-top {
+  padding: 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.panel-close { float: right; width: 24px; height: 24px; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 14px; transition: all .12s; }
+.panel-close:hover { color: var(--text); }
+.panel-node-icon { font-size: 20px; margin-bottom: 8px; }
+.panel-node-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.panel-node-type { font-size: 11px; color: var(--text2); font-family: var(--mono); margin-top: 2px; }
+
+.panel-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 16px; flex-shrink: 0; }
+.panel-tab { font-size: 12px; padding: 8px 12px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--text2); transition: all .15s; background: none; border-top: none; border-left: none; border-right: none; font-family: var(--font); }
+.panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+/* Form fields */
+.f-row { margin-bottom: 14px; }
+.f-label { font-size: 11px; font-weight: 500; color: var(--text2); margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; }
+.f-hint { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.f-required { color: var(--accent); font-size: 10px; }
+.f-input {
+  width: 100%; padding: 7px 10px; background: var(--bg3); border: 1px solid var(--border-strong);
+  border-radius: 7px; font-size: 12px; font-family: var(--font); color: var(--text);
+  outline: none; transition: all .15s;
+}
+.f-input:hover { border-color: rgba(255,255,255,0.18); }
+.f-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.f-input::placeholder { color: var(--text3); }
+.f-section { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+.f-section::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* Mini options table in panel */
+.mini-option { display: grid; grid-template-columns: 1fr 1fr 20px; gap: 4px; align-items: center; margin-bottom: 4px; }
+.mini-input { padding: 5px 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; font-size: 11px; font-family: var(--mono); color: var(--text); outline: none; width: 100%; transition: border-color .12s; }
+.mini-input:focus { border-color: var(--accent); }
+.mini-del { width: 20px; height: 20px; background: none; border: none; color: var(--text3); cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all .12s; }
+.mini-del:hover { background: var(--red-dim); color: var(--red); }
+.add-mini-btn { font-size: 11px; color: var(--accent); background: none; border: none; cursor: pointer; font-family: var(--font); padding: 4px 0; }
+
+/* Toggle */
+.tog-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.tog-row:last-child { border-bottom: none; }
+.tog-label { font-size: 12px; color: var(--text2); }
+.tog { position: relative; width: 28px; height: 16px; flex-shrink: 0; }
+.tog input { opacity: 0; width: 0; height: 0; position: absolute; }
+.tog-track { position: absolute; inset: 0; background: var(--bg4); border-radius: 8px; border: 1px solid var(--border-strong); transition: .2s; cursor: pointer; }
+.tog input:checked + .tog-track { background: var(--accent); border-color: var(--accent); }
+.tog-thumb { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: white; border-radius: 50%; transition: .2s; pointer-events: none; opacity: .7; }
+.tog input:checked ~ .tog-thumb { transform: translateX(12px); opacity: 1; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+/* Mini map hint */
+.mini-map-hint { position: absolute; top: 12px; left: 16px; font-size: 10px; font-family: var(--mono); color: var(--text3); background: var(--bg2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px; pointer-events: none; }
+
+/* Node count badge */
+.node-count { font-size: 10px; font-family: var(--mono); color: var(--text3); background: var(--bg3); border: 1px solid var(--border); padding: 2px 8px; border-radius: 5px; }
+
+/* Animated pulse for selected node */
+@keyframes nodeGlow {
+  0%,100% { box-shadow: 0 0 0 4px var(--accent-dim); }
+  50% { box-shadow: 0 0 0 8px rgba(34,196,135,0.06); }
+}
+.pipeline-node.selected { animation: nodeGlow 2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Funnel Builder
+  </div>
+  <div class="topbar-sep"></div>
+  <span class="funnel-name">ch-tr-mpf</span>
+  <nav class="topbar-tabs">
+    <button class="topbar-tab">Загальне</button>
+    <button class="topbar-tab active">Flow</button>
+    <button class="topbar-tab">Зображення</button>
+    <button class="topbar-tab">JSON</button>
+  </nav>
+  <div class="topbar-right">
+    <div class="view-switcher">
+      <button class="view-btn" onclick="void 0">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="4" height="4" rx="1"/><rect x="7" y="1" width="4" height="4" rx="1"/><rect x="1" y="7" width="4" height="4" rx="1"/><rect x="7" y="7" width="4" height="4" rx="1"/></svg>
+        Список
+      </button>
+      <button class="view-btn active" onclick="void 0">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="2" cy="6" r="1.5"/><circle cx="10" cy="3" r="1.5"/><circle cx="10" cy="9" r="1.5"/><path d="M3.5 6h3L8.5 3M6.5 6h2l1.5 3"/></svg>
+        Pipeline
+      </button>
+    </div>
+    <span class="node-count">9 екранів</span>
+    <button class="btn btn-ghost">Переглянути</button>
+    <button class="btn btn-primary">Опублікувати</button>
+  </div>
+</header>
+
+<!-- CANVAS -->
+<div class="canvas-wrap" id="canvas" onclick="handleCanvasClick(event)">
+
+  <!-- Dot grid is CSS background -->
+  <div class="mini-map-hint">Scroll для масштабування · Drag для переміщення</div>
+
+  <!-- SVG for arrows -->
+  <svg id="arrows-svg" width="100%" height="100%">
+    <defs>
+      <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,0.15)"/>
+      </marker>
+      <marker id="arrowhead-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#22c487"/>
+      </marker>
+    </defs>
+  </svg>
+
+  <!-- ═══════════════════════════════════════════
+       NODES
+  ══════════════════════════════════════════════ -->
+
+  <!-- 0. ScreenGender (start) -->
+  <div class="pipeline-node route-quiz" id="node-0" style="left:60px; top:280px"
+       onclick="selectNode(event, 0)">
+    <div class="port port-out" id="p0-out"></div>
+    <div class="node-header">
+      <div class="node-icon">⚧</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 0</div>
+        <div class="node-name">ScreenGender</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">/</span>
+      <div class="node-preview-text">Вибір статі: Male / Female</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">gender</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- 1. ScreenAge -->
+  <div class="pipeline-node route-quiz selected" id="node-1" style="left:340px; top:280px"
+       onclick="selectNode(event, 1)">
+    <div class="port port-in" id="p1-in"></div>
+    <div class="port port-out" id="p1-out"></div>
+    <div class="node-header">
+      <div class="node-icon">🎂</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 1</div>
+        <div class="node-name">ScreenAge</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">quiz</span>
+      <div class="node-preview-text">What's your age?</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">—</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- 2. ScreenTeaserImage -->
+  <div class="pipeline-node route-quiz" id="node-2" style="left:620px; top:280px"
+       onclick="selectNode(event, 2)">
+    <div class="port port-in" id="p2-in"></div>
+    <div class="port port-out" id="p2-out"></div>
+    <div class="node-header">
+      <div class="node-icon">🖼</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 2</div>
+        <div class="node-name">ScreenTeaserImage</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">quiz</span>
+      <div class="node-preview-text">We're glad you are here</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">—</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- 3. ScreenQuiz (status) -->
+  <div class="pipeline-node route-quiz" id="node-3" style="left:900px; top:180px"
+       onclick="selectNode(event, 3)">
+    <div class="port port-in" id="p3-in"></div>
+    <div class="port port-out" id="p3-out"></div>
+    <div class="node-header">
+      <div class="node-icon">❓</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 3</div>
+        <div class="node-name">ScreenQuiz</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">quiz</span>
+      <div class="node-preview-text">What is your current relationship status?</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">status</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- 4. ScreenTeaserImage 2 -->
+  <div class="pipeline-node route-quiz" id="node-4" style="left:900px; top:380px"
+       onclick="selectNode(event, 4)">
+    <div class="port port-in" id="p4-in"></div>
+    <div class="port port-out" id="p4-out"></div>
+    <div class="node-header">
+      <div class="node-icon">🖼</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 4</div>
+        <div class="node-name">ScreenTeaserImage</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">quiz</span>
+      <div class="node-preview-text">Your trauma shapes everything</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">—</span>
+      <span class="node-status warn"></span>
+    </div>
+  </div>
+
+  <!-- 5. ScreenQuiz (problem) — merge back -->
+  <div class="pipeline-node route-quiz" id="node-5" style="left:1170px; top:280px"
+       onclick="selectNode(event, 5)">
+    <div class="port port-in" id="p5-in"></div>
+    <div class="port port-out" id="p5-out"></div>
+    <div class="node-header">
+      <div class="node-icon">❓</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 5</div>
+        <div class="node-name">ScreenQuiz</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">quiz</span>
+      <div class="node-preview-text">What is your main relationship problem?</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">problem</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- 6. ScreenPersonalization -->
+  <div class="pipeline-node route-quiz" id="node-6" style="left:1440px; top:280px"
+       onclick="selectNode(event, 6)">
+    <div class="port port-in" id="p6-in"></div>
+    <div class="port port-out" id="p6-out"></div>
+    <div class="node-header">
+      <div class="node-icon">✨</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 6</div>
+        <div class="node-name">ScreenPersonalize</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">quiz</span>
+      <div class="node-preview-text">Building your personal plan…</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">—</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- 7. ScreenEmail -->
+  <div class="pipeline-node route-email" id="node-7" style="left:1710px; top:280px"
+       onclick="selectNode(event, 7)">
+    <div class="port port-in" id="p7-in"></div>
+    <div class="port port-out" id="p7-out"></div>
+    <div class="node-header">
+      <div class="node-icon">📧</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 7</div>
+        <div class="node-name">ScreenEmail</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">email</span>
+      <div class="node-preview-text">Enter your email to get your plan</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">email</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- 8. ScreenPaywall -->
+  <div class="pipeline-node route-paywall" id="node-8" style="left:1980px; top:280px"
+       onclick="selectNode(event, 8)">
+    <div class="port port-in" id="p8-in"></div>
+    <div class="node-header">
+      <div class="node-icon">💳</div>
+      <div class="node-meta">
+        <div class="node-index">SCREEN 8</div>
+        <div class="node-name">ScreenPaywall</div>
+      </div>
+    </div>
+    <div class="node-body">
+      <span class="node-route-tag">paywall</span>
+      <div class="node-preview-text">1-MONTH PLAN · MPF · $19.99</div>
+    </div>
+    <div class="node-footer">
+      <span class="node-model-tag">—</span>
+      <span class="node-status ok"></span>
+    </div>
+  </div>
+
+  <!-- Route legend -->
+  <div class="legend">
+    <div class="legend-title">Route</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span> quiz</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--purple)"></span> email</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--amber)"></span> paywall</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--text3)"></span> /</div>
+  </div>
+
+  <!-- Canvas controls -->
+  <div class="canvas-controls" id="canvas-controls">
+    <button class="ctrl-btn" onclick="zoom(0.1)" title="Zoom in">+</button>
+    <button class="ctrl-btn" onclick="zoom(-0.1)" title="Zoom out">−</button>
+    <button class="ctrl-btn" onclick="resetView()" title="Fit to view" style="font-size:11px">⊡</button>
+    <button class="ctrl-btn" onclick="addNode()" title="Add screen" style="font-size:16px">⊕</button>
+  </div>
+
+</div><!-- /canvas-wrap -->
+
+<!-- ═══════════════════════════════════════════
+     DETAIL PANEL
+══════════════════════════════════════════════ -->
+<div class="detail-panel" id="detail-panel">
+  <div class="panel-top">
+    <button class="panel-close" onclick="closePanel()">✕</button>
+    <div class="panel-node-icon" id="p-icon">🎂</div>
+    <div class="panel-node-name" id="p-name">ScreenAge</div>
+    <div class="panel-node-type" id="p-type">Screen 1 · route: quiz</div>
+  </div>
+
+  <nav class="panel-tabs">
+    <button class="panel-tab active" onclick="panelTab(this,'content')">Контент</button>
+    <button class="panel-tab" onclick="panelTab(this,'logic')">Логіка</button>
+    <button class="panel-tab" onclick="panelTab(this,'settings')">Налаштування</button>
+  </nav>
+
+  <div class="panel-body" id="panel-body-content">
+
+    <div class="f-row">
+      <div class="f-label">
+        Питання <span class="f-required">✦</span>
+        <span class="f-hint">→ заголовок</span>
+      </div>
+      <input class="f-input" id="panel-q" value="What's your age?" oninput="void 0">
+    </div>
+
+    <div class="f-row">
+      <div class="f-label">Підзаголовок <span class="f-hint">→ підзаголовок</span></div>
+      <input class="f-input" value="We only use your age to personalize your plan">
+    </div>
+
+    <div class="f-section">Варіанти відповідей</div>
+
+    <div id="mini-options">
+      <div class="mini-option">
+        <input class="mini-input" value="18–24" placeholder="Мітка">
+        <input class="mini-input" value="" placeholder="Знач. моделі">
+        <button class="mini-del">×</button>
+      </div>
+      <div class="mini-option">
+        <input class="mini-input" value="25–34" placeholder="Мітка">
+        <input class="mini-input" value="" placeholder="Знач. моделі">
+        <button class="mini-del">×</button>
+      </div>
+      <div class="mini-option">
+        <input class="mini-input" value="35–44" placeholder="Мітка">
+        <input class="mini-input" value="" placeholder="Знач. моделі">
+        <button class="mini-del">×</button>
+      </div>
+      <div class="mini-option">
+        <input class="mini-input" value="45–54" placeholder="Мітка">
+        <input class="mini-input" value="" placeholder="Знач. моделі">
+        <button class="mini-del">×</button>
+      </div>
+      <div class="mini-option">
+        <input class="mini-input" value="55–64" placeholder="Мітка">
+        <input class="mini-input" value="" placeholder="Знач. моделі">
+        <button class="mini-del">×</button>
+      </div>
+      <div class="mini-option">
+        <input class="mini-input" value="65+" placeholder="Мітка">
+        <input class="mini-input" value="" placeholder="Знач. моделі">
+        <button class="mini-del">×</button>
+      </div>
+    </div>
+    <button class="add-mini-btn">+ Додати варіант</button>
+
+    <div class="f-section">Технічні</div>
+    <div class="tog-row">
+      <span class="tog-label">useClarity</span>
+      <label class="tog"><input type="checkbox"><span class="tog-track"></span><span class="tog-thumb"></span></label>
+    </div>
+    <div class="tog-row">
+      <span class="tog-label">isCustomHeader</span>
+      <label class="tog"><input type="checkbox"><span class="tog-track"></span><span class="tog-thumb"></span></label>
+    </div>
+    <div class="f-row" style="margin-top:12px">
+      <div class="f-label">teaserTrackName</div>
+      <input class="f-input" placeholder="необов'язково">
+    </div>
+  </div>
+
+  <div class="panel-body" id="panel-body-logic" style="display:none">
+    <div class="f-section">Перехід після екрану</div>
+    <div class="f-row">
+      <div class="f-label">Наступний екран</div>
+      <select class="f-input">
+        <option>→ ScreenTeaserImage (2)</option>
+        <option>→ ScreenQuiz (3)</option>
+      </select>
+    </div>
+    <div class="f-section">Skip button (A/B)</div>
+    <div class="f-row">
+      <div class="f-label">Пропустити до моделі</div>
+      <input class="f-input" placeholder="наприклад: userProblem">
+    </div>
+    <div style="font-size:11px; color:var(--text3); background:var(--bg3); border-radius:7px; padding:10px 12px; margin-top:4px; border:1px solid var(--border)">
+      ⚠ Не використовуй для ScreenQuiz або ScreenPersonalization
+    </div>
+  </div>
+
+  <div class="panel-body" id="panel-body-settings" style="display:none">
+    <div class="f-row">
+      <div class="f-label">Route <span class="f-required">✦</span></div>
+      <input class="f-input" value="quiz">
+    </div>
+    <div class="f-row">
+      <div class="f-label">Screen ID</div>
+      <input class="f-input" value="mmkzb7my-ak5n6igy4ci" style="font-family:var(--mono); font-size:11px; color:var(--text3)" readonly>
+    </div>
+    <div class="f-section">Небезпечна зона</div>
+    <button style="width:100%; padding:8px; background:var(--red-dim); border:1px solid rgba(248,113,113,0.2); border-radius:7px; color:var(--red); font-size:12px; cursor:pointer; font-family:var(--font)">Видалити екран</button>
+  </div>
+</div>
+
+<script>
+// ── NODE DATA ──
+const nodeData = [
+  { icon:'⚧', name:'ScreenGender', type:'Screen 0 · route: /', tab:'content' },
+  { icon:'🎂', name:'ScreenAge', type:'Screen 1 · route: quiz', tab:'content' },
+  { icon:'🖼', name:'ScreenTeaserImage', type:'Screen 2 · route: quiz', tab:'content' },
+  { icon:'❓', name:'ScreenQuiz', type:'Screen 3 · route: quiz · model: status', tab:'content' },
+  { icon:'🖼', name:'ScreenTeaserImage', type:'Screen 4 · route: quiz', tab:'content' },
+  { icon:'❓', name:'ScreenQuiz', type:'Screen 5 · route: quiz · model: problem', tab:'content' },
+  { icon:'✨', name:'ScreenPersonalize', type:'Screen 6 · route: quiz', tab:'content' },
+  { icon:'📧', name:'ScreenEmail', type:'Screen 7 · route: email', tab:'content' },
+  { icon:'💳', name:'ScreenPaywall', type:'Screen 8 · route: paywall', tab:'content' },
+];
+
+// ── CANVAS PAN & ZOOM ──
+let scale = 1, panX = 0, panY = 0;
+let dragging = false, startX, startY, lastPanX, lastPanY;
+let selectedNode = 1;
+
+const canvas = document.getElementById('canvas');
+const panel = document.getElementById('detail-panel');
+
+const allNodes = canvas.querySelectorAll('.pipeline-node');
+const group = document.createElement('div');
+group.id = 'node-group';
+group.style.cssText = 'position:absolute; top:0; left:0; transform-origin: 0 0; will-change: transform;';
+allNodes.forEach(n => group.appendChild(n));
+canvas.appendChild(group);
+
+function applyTransform() {
+  group.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
+  document.getElementById('arrows-svg').style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
+  document.getElementById('arrows-svg').style.transformOrigin = '0 0';
+  drawArrows();
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.target.closest('.pipeline-node') || e.target.closest('.detail-panel')) return;
+  dragging = true; startX = e.clientX; startY = e.clientY;
+  lastPanX = panX; lastPanY = panY;
+  canvas.style.cursor = 'grabbing';
+});
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  panX = lastPanX + (e.clientX - startX);
+  panY = lastPanY + (e.clientY - startY);
+  applyTransform();
+});
+document.addEventListener('mouseup', () => { dragging = false; canvas.style.cursor = ''; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.08 : 0.08;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const newScale = Math.max(0.3, Math.min(1.8, scale + delta));
+  panX = mx - (mx - panX) * (newScale / scale);
+  panY = my - (my - panY) * (newScale / scale);
+  scale = newScale;
+  applyTransform();
+}, { passive: false });
+
+function zoom(d) { scale = Math.max(0.3, Math.min(1.8, scale + d)); applyTransform(); }
+function resetView() { scale = 0.68; panX = 20; panY = 60; applyTransform(); }
+function handleCanvasClick(e) {
+  if (!e.target.closest('.pipeline-node') && !e.target.closest('.detail-panel')) {
+    document.querySelectorAll('.pipeline-node').forEach(n => n.classList.remove('selected'));
+    panel.classList.add('closed');
+  }
+}
+
+// ── NODE SELECTION ──
+function selectNode(e, idx) {
+  e.stopPropagation();
+  document.querySelectorAll('.pipeline-node').forEach(n => n.classList.remove('selected'));
+  document.getElementById('node-'+idx).classList.add('selected');
+  selectedNode = idx;
+  const d = nodeData[idx];
+  document.getElementById('p-icon').textContent = d.icon;
+  document.getElementById('p-name').textContent = d.name;
+  document.getElementById('p-type').textContent = d.type;
+  panel.classList.remove('closed');
+  drawArrows();
+}
+
+function closePanel() {
+  panel.classList.add('closed');
+  document.querySelectorAll('.pipeline-node').forEach(n => n.classList.remove('selected'));
+  selectedNode = null;
+  drawArrows();
+}
+
+// ── PANEL TABS ──
+function panelTab(btn, name) {
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['content','logic','settings'].forEach(n => {
+    const el = document.getElementById('panel-body-'+n);
+    if (el) el.style.display = (n===name) ? 'block' : 'none';
+  });
+}
+
+// ── DRAW ARROWS ──
+function nodeCenter(id, side) {
+  const el = document.getElementById('node-'+id);
+  if (!el) return { x:0, y:0 };
+  const r = el.getBoundingClientRect();
+  const cr = canvas.getBoundingClientRect();
+  const x0 = (r.left - cr.left - panX) / scale;
+  const y0 = (r.top - cr.top - panY) / scale;
+  const w = r.width / scale, h = r.height / scale;
+  if (side === 'right') return { x: x0 + w, y: y0 + h / 2 };
+  if (side === 'left')  return { x: x0,     y: y0 + h / 2 };
+  if (side === 'top')   return { x: x0 + w / 2, y: y0 };
+  if (side === 'bot')   return { x: x0 + w / 2, y: y0 + h };
+  return { x: x0 + w / 2, y: y0 + h / 2 };
+}
+
+function cubicPath(a, b) {
+  const dx = Math.abs(b.x - a.x) * 0.5;
+  return `M${a.x},${a.y} C${a.x+dx},${a.y} ${b.x-dx},${b.y} ${b.x},${b.y}`;
+}
+
+const connections = [
+  [0,'right', 1,'left', false],
+  [1,'right', 2,'left', false],
+  [2,'right', 3,'left', false],
+  [2,'right', 4,'left', false],
+  [3,'right', 5,'left', false],
+  [4,'right', 5,'left', false],
+  [5,'right', 6,'left', false],
+  [6,'right', 7,'left', false],
+  [7,'right', 8,'left', false],
+];
+
+function drawArrows() {
+  const svg = document.getElementById('arrows-svg');
+  while (svg.children.length > 1) svg.removeChild(svg.lastChild);
+
+  connections.forEach(([fromId, fromSide, toId, toSide]) => {
+    const a = nodeCenter(fromId, fromSide);
+    const b = nodeCenter(toId, toSide);
+    const isSelected = (fromId === selectedNode || toId === selectedNode);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', cubicPath(a, b));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', isSelected ? '#22c487' : 'rgba(255,255,255,0.13)');
+    path.setAttribute('stroke-width', isSelected ? '2' : '1.5');
+    path.setAttribute('marker-end', isSelected ? 'url(#arrowhead-accent)' : 'url(#arrowhead)');
+    svg.appendChild(path);
+  });
+}
+
+// ── INIT ──
+resetView();
+setTimeout(() => {
+  drawArrows();
+  selectNode({ stopPropagation: ()=>{} }, 1);
+}, 80);
+
+window.addEventListener('resize', drawArrows);
+</script>
+</body>
+</html>
